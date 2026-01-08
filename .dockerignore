@@ -5,6 +5,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .pnpm-store
+.pnpm-debug.log
 
 # Build output
 .next

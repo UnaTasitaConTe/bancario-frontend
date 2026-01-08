@@ -1,24 +1,30 @@
-# Dockerfile optimizado para Next.js con multi-stage build
+# Dockerfile optimizado para Next.js con multi-stage build usando pnpm
 
 # Stage 1: Dependencias
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
+
+# Instalar pnpm globalmente
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
 # Copiar archivos de dependencias
-COPY package.json package-lock.json* ./
+COPY package.json pnpm-lock.yaml* .npmrc* ./
 
-# Instalar dependencias
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Instalar dependencias de producción
+RUN pnpm install --prod --frozen-lockfile
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
+
+# Instalar pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
-# Copiar dependencias instaladas
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copiar archivos de dependencias y configuración
+COPY package.json pnpm-lock.yaml* .npmrc* ./
 
 # Variables de entorno necesarias para el build
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -29,8 +35,13 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Instalar todas las dependencias (incluyendo devDependencies para el build)
-RUN npm ci && \
-    npm run build
+RUN pnpm install --frozen-lockfile
+
+# Copiar código fuente
+COPY . .
+
+# Construir la aplicación
+RUN pnpm run build
 
 # Stage 3: Runner (imagen final)
 FROM node:20-alpine AS runner
